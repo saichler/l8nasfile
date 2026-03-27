@@ -1,0 +1,12 @@
+{
+  "login": {
+    "appTitle": "NAS Remote File Manager",
+    "appDescription": "Secure File Management",
+    "authEndpoint": "/auth",
+    "redirectUrl": "/filemanager.html",
+    "showRememberMe": true,
+    "showRegister": false,
+    "sessionTimeout": 30,
+    "tfaEnabled": true
+  }
+}

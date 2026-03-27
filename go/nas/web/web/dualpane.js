@@ -2,12 +2,12 @@
 class FileManagerAPI {
     constructor() {
         this.baseUrl = '';
-        this.authToken = sessionStorage.getItem('authToken');
+        this.bearerToken = sessionStorage.getItem('bearerToken');
     }
 
     async request(endpoint, options = {}) {
         // Check if authenticated
-        if (!this.authToken) {
+        if (!this.bearerToken) {
             window.location.href = '/';
             throw new Error('Not authenticated');
         }
@@ -17,7 +17,7 @@ class FileManagerAPI {
                 ...options,
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.authToken}`,
+                    'Authorization': `Bearer ${this.bearerToken}`,
                     ...options.headers
                 }
             });
@@ -25,7 +25,7 @@ class FileManagerAPI {
             if (!response.ok) {
                 // If unauthorized, redirect to login
                 if (response.status === 401 || response.status === 403) {
-                    sessionStorage.removeItem('authToken');
+                    sessionStorage.removeItem('bearerToken');
                     window.location.href = '/';
                     throw new Error('Authentication required');
                 }
@@ -1380,7 +1380,7 @@ class FileManager {
         try {
             const response = await fetch(url, {
                 headers: {
-                    'Authorization': `Bearer ${this.api.authToken}`
+                    'Authorization': `Bearer ${this.api.bearerToken}`
                 }
             });
 
@@ -1540,7 +1540,7 @@ class FileManager {
     }
 
     logout() {
-        sessionStorage.removeItem('authToken');
+        sessionStorage.removeItem('bearerToken');
         window.location.href = '/';
     }
 }
@@ -1549,7 +1549,7 @@ class FileManager {
 let fileManager;
 document.addEventListener('DOMContentLoaded', () => {
     // Check if authenticated
-    if (!sessionStorage.getItem('authToken')) {
+    if (!sessionStorage.getItem('bearerToken')) {
         window.location.href = '/';
         return;
     }

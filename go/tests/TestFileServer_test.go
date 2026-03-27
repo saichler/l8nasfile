@@ -92,7 +92,7 @@ func createRestClient(t *testing.T, pb interface{}, prefix string) (*client.Rest
 	resources.Registry().Register(files.FileList{})
 	clientConfig := &client.RestClientConfig{
 		Host:          ipsegment.MachineIP,
-		Port:          7443,
+		Port:          3443,
 		Https:         true,
 		TokenRequired: true,
 		CertFileName:  "files.crt",

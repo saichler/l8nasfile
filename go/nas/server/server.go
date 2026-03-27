@@ -41,7 +41,7 @@ func Start() {
 	r.Logger().Info("vnet started!")
 	r.Logger().SetLogLevel(ifs.Error_Level)
 	time.Sleep(time.Second)
-	startWebServer(7443, vnetPort, "files")
+	startWebServer(3443, vnetPort, "files")
 }
 
 func startWebServer(port int, vnetPort uint32, cert string) {
