@@ -23,11 +23,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/saichler/l8nasfile/go/nas/server"
+	"github.com/saichler/l8nasfile/go/types/files"
 	"github.com/saichler/l8types/go/types/l8api"
 	"github.com/saichler/l8utils/go/utils/shared"
 	"github.com/saichler/l8web/go/web/client"
-	"github.com/saichler/nasfile/go/nas/server"
-	"github.com/saichler/nasfile/go/types/files"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 

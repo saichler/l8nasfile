@@ -22,12 +22,12 @@ import (
 
 	"github.com/saichler/l8bus/go/overlay/vnet"
 	"github.com/saichler/l8bus/go/overlay/vnic"
+	"github.com/saichler/l8nasfile/go/nas/actions"
+	files2 "github.com/saichler/l8nasfile/go/nas/files"
+	"github.com/saichler/l8nasfile/go/types/files"
 	"github.com/saichler/l8types/go/ifs"
 	"github.com/saichler/l8utils/go/utils/shared"
 	"github.com/saichler/l8web/go/web/server"
-	"github.com/saichler/nasfile/go/nas/actions"
-	files2 "github.com/saichler/nasfile/go/nas/files"
-	"github.com/saichler/nasfile/go/types/files"
 )
 
 func Start() {
@@ -78,14 +78,14 @@ func startWebServer(port int, vnetPort uint32, cert string) {
 	nic.Resources().Services().Activate(sla, nic)
 
 	// Register download endpoint
-	registerDownloadEndpoint(nic.Resources())
+	registerDownloadEndpoint(nic)
 
 	nic.Resources().Logger().Info("Web Server Started!")
 
 	svr.Start()
 }
 
-func registerDownloadEndpoint(resources ifs.IResources) {
+func registerDownloadEndpoint(vnic ifs.IVNic) {
 	http.HandleFunc("/files/download", func(w http.ResponseWriter, r *http.Request) {
 		// Check authentication
 		bearer := r.Header.Get("Authorization")
@@ -93,12 +93,12 @@ func registerDownloadEndpoint(resources ifs.IResources) {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
-		_, ok := resources.Security().ValidateToken(bearer)
+		_, ok := vnic.Resources().Security().ValidateToken(bearer, vnic)
 		if !ok {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		actions.DownloadHandler(w, r, resources)
+		actions.DownloadHandler(w, r, vnic.Resources())
 	})
 }
