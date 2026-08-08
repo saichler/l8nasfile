@@ -16,24 +16,25 @@
 package server
 
 import (
-	"github.com/saichler/l8utils/go/utils/ipsegment"
+	"encoding/base64"
 	"net/http"
 	"time"
 
+	"github.com/saichler/l8utils/go/utils/ipsegment"
+
 	"github.com/saichler/l8bus/go/overlay/vnet"
-	"github.com/saichler/l8bus/go/overlay/vnic"
 	"github.com/saichler/l8nasfile/go/nas/actions"
+	"github.com/saichler/l8nasfile/go/nas/common"
 	files2 "github.com/saichler/l8nasfile/go/nas/files"
 	"github.com/saichler/l8nasfile/go/types/files"
 	"github.com/saichler/l8types/go/ifs"
-	"github.com/saichler/l8utils/go/utils/shared"
+	"github.com/saichler/l8types/go/sec"
 	"github.com/saichler/l8web/go/web/server"
 )
 
 func Start() {
 	server.Timeout = 600
-	vnetPort := uint32(15151)
-	r := shared.ResourcesOf("vnet-nas", vnetPort, 0, "")
+	r := common.CreateResources("vnet-nas", false)
 	r.Logger().SetLogLevel(ifs.Info_Level)
 	net := vnet.NewVNet(r)
 	net.Start()
@@ -41,36 +42,42 @@ func Start() {
 	r.Logger().Info("vnet started!")
 	r.Logger().SetLogLevel(ifs.Error_Level)
 	time.Sleep(time.Second)
-	startWebServer(3443, vnetPort, "files")
+	startWebServer(r)
 }
 
-func startWebServer(port int, vnetPort uint32, cert string) {
+func startWebServer(vnetResources ifs.IResources) {
+	webPort := int(vnetResources.SysConfig().WebConfig.WebPort)
+	nic := common.CreateVnic("web-nas", false, func(res ifs.IResources) {
+		res.Registry().Register(&files.File{})
+		res.Registry().Register(&files.FileList{})
+		res.Registry().Register(&files.Action{})
+		res.Registry().Register(&files.ActionResponse{})
+	})
+
+	files2.Activate(nic)
+	actions.Activate(nic)
+
+	domain, private, _ := nic.Resources().Certificate()
+	if domain == "" || private == "" {
+		d, p, _ := sec.CreateCertBundle()
+		domainBytes, _ := base64.StdEncoding.DecodeString(d)
+		privateBytes, _ := base64.StdEncoding.DecodeString(p)
+		domain = string(domainBytes)
+		private = string(privateBytes)
+	}
+
 	serverConfig := &server.RestServerConfig{
 		Host:           ipsegment.MachineIP,
-		Port:           port,
+		Port:           webPort,
 		Authentication: true,
-		CertName:       cert,
+		CertDomain:     domain,
+		CertPrivate:    private,
 		Prefix:         "/files/",
 	}
 	svr, err := server.NewRestServer(serverConfig)
 	if err != nil {
 		panic(err)
 	}
-
-	r := shared.ResourcesOf("web-nas", vnetPort, 0, "")
-
-	r.Registry().Register(&files.File{})
-	r.Registry().Register(&files.FileList{})
-	r.Registry().Register(&files.Action{})
-	r.Registry().Register(&files.ActionResponse{})
-
-	nic := vnic.NewVirtualNetworkInterface(r, nil)
-	nic.Resources().SysConfig().KeepAliveIntervalSeconds = 0
-	nic.Start()
-	nic.WaitForConnection()
-
-	files2.Activate(nic)
-	actions.Activate(nic)
 
 	//Activate the webpoints service
 	sla := ifs.NewServiceLevelAgreement(&server.WebService{}, ifs.WebService, 0, false, nil)

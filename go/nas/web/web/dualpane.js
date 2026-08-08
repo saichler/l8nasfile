@@ -104,7 +104,7 @@ class FileManagerAPI {
                 const result = await this.request('/files/0/Actions', {
                     method: 'POST',
                     body: JSON.stringify({
-                        action: 'delete',
+                        action: 'ACTION_TYPE_DELETE',
                         source: {
                             path: dirPath,
                             name: fileName
@@ -133,7 +133,7 @@ class FileManagerAPI {
         return this.request('/files/0/Actions', {
             method: 'POST',
             body: JSON.stringify({
-                action: 'rename',
+                action: 'ACTION_TYPE_RENAME',
                 source: {
                     path: dirPath,
                     name: oldName
@@ -159,7 +159,7 @@ class FileManagerAPI {
                 const result = await this.request('/files/0/Actions', {
                     method: 'POST',
                     body: JSON.stringify({
-                        action: 'copy',
+                        action: 'ACTION_TYPE_COPY',
                         source: {
                             path: sourceDirPath,
                             name: fileName
@@ -198,7 +198,7 @@ class FileManagerAPI {
                 const result = await this.request('/files/0/Actions', {
                     method: 'POST',
                     body: JSON.stringify({
-                        action: 'cut',
+                        action: 'ACTION_TYPE_CUT',
                         source: {
                             path: sourceDirPath,
                             name: fileName
@@ -343,7 +343,7 @@ class FilePane {
             // Get file list
             const response = await this.api.listFiles(this.currentPath);
             console.log('loadFiles: API response received:', response);
-            this.files = Array.isArray(response) ? response : response.fiels || [];
+            this.files = Array.isArray(response) ? response : response.list || [];
             console.log('loadFiles: Processed files array:', this.files);
 
             // Update disk space from response
@@ -1208,7 +1208,7 @@ class FileManager {
             await this.api.request('/files/0/Actions', {
                 method: 'POST',
                 body: JSON.stringify({
-                    action: 'newFolder',
+                    action: 'ACTION_TYPE_NEW_FOLDER',
                     source: {
                         path: dirPath,
                         name: name

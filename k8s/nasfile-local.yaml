@@ -1,0 +1,43 @@
+# Local hostPath version — single-node development/testing
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nasfile
+  labels:
+    name: nasfile
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  namespace: nasfile
+  name: nasfile
+  labels:
+    app: nasfile
+spec:
+  selector:
+    matchLabels:
+      app: nasfile
+  template:
+    metadata:
+      labels:
+        app: nasfile
+    spec:
+      hostNetwork: true
+      containers:
+        - name: nasfile
+          image: saichler/nasfile:latest
+          imagePullPolicy: Always
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          volumeMounts:
+            - name: hdata
+              mountPath: /data
+      volumes:
+        - name: hdata
+          hostPath:
+            path: /data
+            type: DirectoryOrCreate

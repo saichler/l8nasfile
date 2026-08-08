@@ -69,13 +69,13 @@ func (this *FileService) Post(pb ifs.IElements, vnic ifs.IVNic) ifs.IElements {
 		}
 		list := &files.FileList{}
 		list.TotalSpace, list.FreeSpace, err = Space(subPath)
-		list.Fiels = make([]*files.File, 0)
+		list.List = make([]*files.File, 0)
 		for _, file := range fileList {
 			ff := &files.File{}
 			ff.Name = file.Name()
 			ff.Path = subPath
 			ff.IsDirectory = file.IsDir()
-			list.Fiels = append(list.Fiels, ff)
+			list.List = append(list.List, ff)
 
 			info, err := file.Info()
 			if err != nil {

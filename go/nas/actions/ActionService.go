@@ -19,10 +19,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -65,47 +65,21 @@ func (this *ActionService) DeActivate() error {
 	return nil
 }
 
-func responde(msg string, isError bool) ifs.IElements {
+func respond(msg string, isError bool) ifs.IElements {
 	fmt.Println(msg)
 	return object.New(nil, &files.ActionResponse{Msg: msg, IsError: isError})
 }
 
-func isDirectory(source, target *files.File) (string, string, error) {
-	if source == nil || target == nil {
-		return "", "", errors.New("source or target are nil")
+func resolvePath(f *files.File) (string, error) {
+	if f == nil {
+		return "", errors.New("file is nil")
 	}
-	sourcePath := source.Path + "/" + source.Name
-	if strings.HasSuffix(sourcePath, "//") {
-		sourcePath = sourcePath[1:]
+	raw := f.Path + "/" + f.Name
+	if strings.HasPrefix(raw, "//") {
+		raw = raw[1:]
 	}
-	_, err := os.ReadDir(sourcePath)
-	if err == nil {
-		source.IsDirectory = true
-	} else {
-		source.IsDirectory = false
-		_, err = os.Stat(sourcePath)
-		if err != nil {
-			return "", "", errors.New("Source '" + sourcePath + "' does not exist")
-		}
-	}
-
-	targetPath := target.Path + "/" + target.Name
-	if strings.HasSuffix(targetPath, "//") {
-		targetPath = targetPath[1:]
-	}
-	_, err = os.ReadDir(targetPath)
-	if err == nil {
-		target.IsDirectory = true
-	} else {
-		_, err = os.Stat(targetPath)
-		if err == nil && source.IsDirectory {
-			return "", "", errors.New("Target '" + targetPath + "' is a file")
-		} else {
-			target.IsDirectory = source.IsDirectory
-		}
-	}
-
-	return "\"" + sourcePath + "\"", "\"" + targetPath + "\"", nil
+	cleaned := filepath.Clean(raw)
+	return cleaned, nil
 }
 
 func (this *ActionService) Post(pb ifs.IElements, vnic ifs.IVNic) ifs.IElements {
@@ -113,15 +87,15 @@ func (this *ActionService) Post(pb ifs.IElements, vnic ifs.IVNic) ifs.IElements 
 	if ok {
 		fmt.Println("Doing: ", ac.Action.String())
 		switch ac.Action {
-		case files.ActionType_copy:
+		case files.ActionType_ACTION_TYPE_COPY:
 			return doCopy(ac)
-		case files.ActionType_cut:
+		case files.ActionType_ACTION_TYPE_CUT:
 			return doCut(ac)
-		case files.ActionType_delete:
+		case files.ActionType_ACTION_TYPE_DELETE:
 			return doDelete(ac)
-		case files.ActionType_rename:
+		case files.ActionType_ACTION_TYPE_RENAME:
 			return doRename(ac)
-		case files.ActionType_newFolder:
+		case files.ActionType_ACTION_TYPE_NEW_FOLDER:
 			return doNewFolder(ac)
 		}
 	}
@@ -129,93 +103,138 @@ func (this *ActionService) Post(pb ifs.IElements, vnic ifs.IVNic) ifs.IElements 
 }
 
 func doCopy(ac *files.Action) ifs.IElements {
-	source, target, err := isDirectory(ac.Source, ac.Target)
+	srcPath, err := resolvePath(ac.Source)
 	if err != nil {
-		return responde(err.Error(), true)
+		return respond(err.Error(), true)
 	}
-
-	script := ""
-
-	if ac.Source.IsDirectory && ac.Target.IsDirectory {
-		script = "bash -c 'cp -r " + source + " " + target + "'"
-	} else if !ac.Source.IsDirectory && !ac.Target.IsDirectory {
-		script = "bash -c 'cp " + source + " " + target + "'"
-	}
-
-	os.WriteFile("script.sh", []byte(script), 0777)
-	cmd := exec.Command("bash", "-c", "./script.sh")
-	out, err := cmd.Output()
+	dstPath, err := resolvePath(ac.Target)
 	if err != nil {
-		return responde(err.Error(), true)
+		return respond(err.Error(), true)
 	}
-	return responde(string(out), false)
+
+	srcInfo, err := os.Stat(srcPath)
+	if err != nil {
+		return respond("source does not exist: "+srcPath, true)
+	}
+
+	if srcInfo.IsDir() {
+		err = copyDir(srcPath, dstPath)
+	} else {
+		err = copyFile(srcPath, dstPath)
+	}
+	if err != nil {
+		return respond(err.Error(), true)
+	}
+	return respond("copied "+srcPath+" to "+dstPath, false)
 }
 
 func doCut(ac *files.Action) ifs.IElements {
-	source, target, err := isDirectory(ac.Source, ac.Target)
+	srcPath, err := resolvePath(ac.Source)
 	if err != nil {
-		return responde(err.Error(), true)
+		return respond(err.Error(), true)
+	}
+	dstPath, err := resolvePath(ac.Target)
+	if err != nil {
+		return respond(err.Error(), true)
 	}
 
-	script := "bash -c 'mv " + source + " " + target + "'"
-	os.WriteFile("script.sh", []byte(script), 0777)
-	cmd := exec.Command("bash", "-c", "./script.sh")
-	out, err := cmd.Output()
-	if err != nil {
-		return responde(err.Error(), true)
+	if _, err := os.Stat(srcPath); err != nil {
+		return respond("source does not exist: "+srcPath, true)
 	}
-	return responde(string(out), false)
+
+	if err := os.Rename(srcPath, dstPath); err != nil {
+		return respond(err.Error(), true)
+	}
+	return respond("moved "+srcPath+" to "+dstPath, false)
 }
 
 func doDelete(ac *files.Action) ifs.IElements {
-	sourcePath := ac.Source.Path + "/" + ac.Source.Name
-	if strings.HasSuffix(sourcePath, "//") {
-		sourcePath = sourcePath[1:]
-	}
-
-	sourcePath = "\"" + sourcePath + "\""
-
-	script := "bash -c 'rm -rf " + sourcePath + "'"
-	os.WriteFile("script.sh", []byte(script), 0777)
-	cmd := exec.Command("bash", "-c", "./script.sh")
-	out, err := cmd.Output()
+	srcPath, err := resolvePath(ac.Source)
 	if err != nil {
-		return responde(err.Error(), true)
+		return respond(err.Error(), true)
 	}
-	return responde(string(out), false)
+
+	if _, err := os.Stat(srcPath); err != nil {
+		return respond("path does not exist: "+srcPath, true)
+	}
+
+	if err := os.RemoveAll(srcPath); err != nil {
+		return respond(err.Error(), true)
+	}
+	return respond("deleted "+srcPath, false)
 }
 
 func doRename(ac *files.Action) ifs.IElements {
-	source, target, err := isDirectory(ac.Source, ac.Target)
+	srcPath, err := resolvePath(ac.Source)
 	if err != nil {
-		return responde(err.Error(), true)
+		return respond(err.Error(), true)
+	}
+	dstPath, err := resolvePath(ac.Target)
+	if err != nil {
+		return respond(err.Error(), true)
 	}
 
-	script := "bash -c 'mv " + source + " " + target + "'"
-	os.WriteFile("script.sh", []byte(script), 0777)
-	cmd := exec.Command("bash", "-c", "./script.sh")
-	out, err := cmd.Output()
-	if err != nil {
-		return responde(err.Error(), true)
+	if _, err := os.Stat(srcPath); err != nil {
+		return respond("source does not exist: "+srcPath, true)
 	}
-	return responde(string(out), false)
+
+	if err := os.Rename(srcPath, dstPath); err != nil {
+		return respond(err.Error(), true)
+	}
+	return respond("renamed "+srcPath+" to "+dstPath, false)
 }
 
 func doNewFolder(ac *files.Action) ifs.IElements {
-	sourcePath := ac.Source.Path + "/" + ac.Source.Name
-	if strings.HasSuffix(sourcePath, "//") {
-		sourcePath = sourcePath[1:]
-	}
-	sourcePath = "\"" + sourcePath + "\""
-
-	script := "bash -c 'mkdir -p " + sourcePath + "'"
-	os.WriteFile("script.sh", []byte(script), 0777)
-	cmd := exec.Command("bash", "-c", "./script.sh")
-	out, err := cmd.Output()
+	folderPath, err := resolvePath(ac.Source)
 	if err != nil {
-		return responde(err.Error(), true)
+		return respond(err.Error(), true)
 	}
-	return responde(string(out), false)
+
+	if err := os.MkdirAll(folderPath, 0755); err != nil {
+		return respond(err.Error(), true)
+	}
+	return respond("created folder "+folderPath, false)
+}
+
+func copyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	srcInfo, err := srcFile.Stat()
+	if err != nil {
+		return err
+	}
+
+	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode())
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+
+	_, err = io.Copy(dstFile, srcFile)
+	return err
+}
+
+func copyDir(src, dst string) error {
+	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relPath, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		targetPath := filepath.Join(dst, relPath)
+
+		if d.IsDir() {
+			return os.MkdirAll(targetPath, 0755)
+		}
+		return copyFile(path, targetPath)
+	})
 }
 
 func (this *ActionService) Put(pb ifs.IElements, vnic ifs.IVNic) ifs.IElements {
@@ -247,19 +266,15 @@ func (this *ActionService) WebService() ifs.IWebService {
 	return this.sla.WebService()
 }
 
-// DownloadHandler handles file download requests
 func DownloadHandler(w http.ResponseWriter, r *http.Request, resources ifs.IResources) {
-	// Extract path from query parameter
 	filePath := r.URL.Query().Get("path")
 	if filePath == "" {
 		http.Error(w, "Missing path parameter", http.StatusBadRequest)
 		return
 	}
 
-	// Clean the path to prevent path traversal attacks
 	cleanPath := filepath.Clean(filePath)
 
-	// Check if file exists and is not a directory
 	fileInfo, err := os.Stat(cleanPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -275,7 +290,6 @@ func DownloadHandler(w http.ResponseWriter, r *http.Request, resources ifs.IReso
 		return
 	}
 
-	// Open the file
 	file, err := os.Open(cleanPath)
 	if err != nil {
 		http.Error(w, "Error opening file", http.StatusInternalServerError)
@@ -283,27 +297,19 @@ func DownloadHandler(w http.ResponseWriter, r *http.Request, resources ifs.IReso
 	}
 	defer file.Close()
 
-	// Set headers for download
 	fileName := filepath.Base(cleanPath)
-	// Properly encode filename for Content-Disposition header (RFC 5987)
-	// This handles spaces, special characters, and non-ASCII characters
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", encodeRFC5987(fileName)))
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size()))
 
-	// Stream file to response
 	_, err = io.Copy(w, file)
 	if err != nil {
 		resources.Logger().Error("Error streaming file: ", err)
 	}
 }
 
-// encodeRFC5987 encodes a string according to RFC 5987
-// This is used for encoding filenames in Content-Disposition headers
 func encodeRFC5987(s string) string {
-	// URL encode but keep certain characters that are allowed in RFC 5987
 	encoded := url.QueryEscape(s)
-	// RFC 5987 allows certain characters that QueryEscape encodes
 	encoded = strings.ReplaceAll(encoded, "+", "%20")
 	return encoded
 }

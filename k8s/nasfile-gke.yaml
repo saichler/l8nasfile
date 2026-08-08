@@ -1,0 +1,67 @@
+# GKE version — Google Kubernetes Engine with GCE persistent disk
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: nasfile-storage
+provisioner: kubernetes.io/gce-pd
+parameters:
+  type: pd-standard
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: nasfile
+  name: nasfile-data
+  labels:
+    app: nasfile
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nasfile-storage
+  resources:
+    requests:
+      storage: 50Gi
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nasfile
+  labels:
+    name: nasfile
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  namespace: nasfile
+  name: nasfile
+  labels:
+    app: nasfile
+spec:
+  selector:
+    matchLabels:
+      app: nasfile
+  template:
+    metadata:
+      labels:
+        app: nasfile
+    spec:
+      hostNetwork: true
+      containers:
+        - name: nasfile
+          image: saichler/nasfile:latest
+          imagePullPolicy: Always
+          env:
+            - name: NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          volumeMounts:
+            - name: hdata
+              mountPath: /data
+      volumes:
+        - name: hdata
+          persistentVolumeClaim:
+            claimName: nasfile-data

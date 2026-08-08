@@ -23,7 +23,7 @@ option java_package = "com.types.files";
 option go_package = "./types/files";
 
 message FileList {
-  repeated File fiels = 1;
+  repeated File list = 1;
   uint64 totalSpace = 2;
   uint64 freeSpace = 3;
 }
@@ -38,12 +38,12 @@ message File {
 }
 
 enum ActionType {
-  invalid = 0;
-  copy = 1;
-  cut = 2;
-  rename = 3;
-  delete = 4;
-  newFolder = 5;
+  ACTION_TYPE_UNSPECIFIED = 0;
+  ACTION_TYPE_COPY = 1;
+  ACTION_TYPE_CUT = 2;
+  ACTION_TYPE_RENAME = 3;
+  ACTION_TYPE_DELETE = 4;
+  ACTION_TYPE_NEW_FOLDER = 5;
 }
 
 message Action {
