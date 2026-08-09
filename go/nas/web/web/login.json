@@ -8,5 +8,10 @@
     "showRegister": false,
     "sessionTimeout": 30,
     "tfaEnabled": true
+  },
+  "app": {
+    "dateFormat": "mm/dd/yyyy",
+    "apiPrefix": "/files",
+    "healthPath": "/0/Health"
   }
 }

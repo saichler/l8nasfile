@@ -35,3 +35,5 @@ go.work.sum
 .vscode/
 vendor
 demo
+go.mod
+go.sum
