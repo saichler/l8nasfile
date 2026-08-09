@@ -39,6 +39,10 @@ spec:
         - name: nasfile
           image: saichler/nasfile:latest
           imagePullPolicy: Always
+          ports:
+            - containerPort: 3443
+            - containerPort: 4443
+            - containerPort: 10005
           env:
             - name: NODE_IP
               valueFrom:
@@ -47,6 +51,13 @@ spec:
           volumeMounts:
             - name: hdata
               mountPath: /data
+            - name: hostfs
+              mountPath: /host
+      volumes:
+        - name: hostfs
+          hostPath:
+            path: /
+            type: Directory
   volumeClaimTemplates:
     - metadata:
         name: hdata

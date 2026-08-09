@@ -15,6 +15,16 @@ apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
   - role: control-plane
   - role: worker
+    extraPortMappings:
+      - containerPort: 3443
+        hostPort: 3443
+        protocol: TCP
+      - containerPort: 4443
+        hostPort: 4443
+        protocol: TCP
+      - containerPort: 10005
+        hostPort: 10005
+        protocol: TCP
 EOF
 
 echo "Loading images into KIND cluster..."
