@@ -1,4 +1,4 @@
-docker pull saichler/nasfile:latest
+docker pull registry.layer-8.dev:44443/nasfile/nasfile:latest
 docker run -d \       
     --name nasfile \
     --restart unless-stopped \
@@ -6,4 +6,4 @@ docker run -d \
     -v /mnt:/host/mnt \
     -v nasfile-data:/data \
     -e NODE_IP=0.0.0.0 \
-    saichler/nasfile:latest
+    registry.layer-8.dev:44443/nasfile/nasfile:latest

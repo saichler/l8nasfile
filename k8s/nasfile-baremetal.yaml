@@ -42,9 +42,11 @@ spec:
                 matchLabels:
                   app: nasfile
               topologyKey: kubernetes.io/hostname
+      imagePullSecrets:
+        - name: harbor-pull
       containers:
         - name: nasfile
-          image: saichler/nasfile:latest
+          image: registry.layer-8.dev:44443/nasfile/nasfile:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3443

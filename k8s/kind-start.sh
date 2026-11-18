@@ -28,7 +28,7 @@ nodes:
 EOF
 
 echo "Loading images into KIND cluster..."
-kind load docker-image saichler/nasfile:latest --name "$CLUSTER_NAME"
+kind load docker-image registry.layer-8.dev:44443/nasfile/nasfile:latest --name "$CLUSTER_NAME"
 
 echo "Deploying nasfile..."
 kubectl apply -f "$SCRIPT_DIR/nasfile-kind.yaml"
